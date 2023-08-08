@@ -3,6 +3,7 @@ library(IsoplotR)
 library('cardidates')
 library(dplyr)
 library(reactlog)
+library(rhandsontable)
 
 reactlog_enable()
 
