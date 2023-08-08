@@ -12,13 +12,6 @@ ui <- fluidPage(
     sidebarPanel(
       textInput( "sampleName", "Sample Name:", value = "sample name here" ),
       br(),
-      selectInput( #builds the input tab to design the input options
-        "data_source",
-        label = "Data Source",
-        choices = c("Manual", "Upload"),
-        selected = "Manual"
-      ),
-      
       selectInput(# drop down for the node spacing
         inputId = "node_space",
         label = "Node Spacing (Ma)",
@@ -90,24 +83,40 @@ ui <- fluidPage(
       tabsetPanel(
         tabPanel( "Input Data", 
                   
-        # Tab 1: Output table
-        conditionalPanel( # for the copy paste input, needs to be changed to react table
-          condition = "input.data_source == 'Manual'",
+        # # Tab 1: Output table
+        # conditionalPanel( # for the copy paste input, needs to be changed to react table
+        #   condition = "input.data_source == 'Manual'",
+        # 
+        #   downloadButton("dwnldTableBtn", "Download Example Table"),
+        #   br(),
+        #   tabPanel("Input Data", rHandsontableOutput("output_table")),
+        # 
+        # ),
+        # conditionalPanel( # for the copy paste input, needs to be changed to react table
+        #   condition = "input.data_source == 'Upload'",
+        #   fileInput(
+        #     "data_file",
+        #     label = "Upload data file (CSV)",
+        #     accept = ".csv"
+        #   )
+        # )
 
-          downloadButton("dwnldTableBtn", "Download Example Table"),
-          br(),
-          tabPanel("Input Data", rHandsontableOutput("output_table")),
 
-        ),
-        conditionalPanel( # for the copy paste input, needs to be changed to react table
+        radioButtons(
+          inputId ="data_source",
+          label = 'Data Input Type',
+          choiceNames = c("Manual", "Upload File"),
+          choiceValues = c('Manual', 'Upload'),
+          selected = "Manual",
+          inline = TRUE ),
+        #deactivate input sample size field when range of samples is selected
+        conditionalPanel(
           condition = "input.data_source == 'Upload'",
-          fileInput(
-            "data_file",
-            label = "Upload data file (CSV)",
-            accept = ".csv"
-          )
-        ) 
+          fileInput("fileInput", "Upload CSV File"),
+          dataTableOutput( "data_file")
         ),
+        rHandsontableOutput("output_table") ),
+
         
         # Tab 2: Output plot - Concordia Diagram
         tabPanel("Concordia Plot", plotOutput("concordia_plot", 
