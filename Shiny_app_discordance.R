@@ -4,6 +4,7 @@ library('cardidates')
 library(dplyr)
 library(reactlog)
 library(rhandsontable)
+library(DT)
 
 reactlog_enable()
 
