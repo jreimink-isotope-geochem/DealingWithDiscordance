@@ -10,41 +10,18 @@ reactlog_enable()
 ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
+      textInput( "sampleName", "Sample Name:", value = "sample name here" ),
+      br(),
       selectInput( #builds the input tab to design the input options
         "data_source",
-        label = "Data Source Test",
-        choices = c("Copy-Paste", "Upload File"),
-        selected = "Upload File"
-      ),
-      
-      conditionalPanel(# for the copy paste input, needs to be changed to react table
-        condition = "input.data_source == 'Copy-Paste'",
-        textAreaInput(
-          "data_input",
-          label = "Paste your data here:",
-          value = "",
-          width = "100%",
-          height = "200px"
-        )
-      ),
-      
-      conditionalPanel(#just a file upload
-        condition = "input.data_source == 'Upload File'",
-        fileInput(
-          "data_file",
-          label = "Upload data file (CSV)",
-          accept = ".csv"
-        )
-      ),
-      
-      actionButton(#creates the button for the obserEvent call to reduce
-        inputId = "reduce_data",
-        label = "Discordance Reduction"
+        label = "Data Source",
+        choices = c("Manual", "Upload"),
+        selected = "Manual"
       ),
       
       selectInput(# drop down for the node spacing
         inputId = "node_space",
-        label = "Node Spacing (ma)",
+        label = "Node Spacing (Ma)",
         choices = c(0.5,1,5,10,15,20,25,50,100),
         selected = 25
       ),
@@ -98,17 +75,43 @@ ui <- fluidPage(
         min = 0,
         max = 4500,
         value = 2000
+      ),
+      br(),
+      actionButton( "saveBtn", "Save Table"),
+      br(),
+      actionButton(#creates the button for the obserEvent call to reduce
+        inputId = "reduce_data",
+        label = "Run Discordance Modeling"
       )
     ),
     
     mainPanel(# sets up the tabs to show outputs
       textOutput("my_csv_name"),  # Shows file name
       tabsetPanel(
+        tabPanel( "Input Data", 
+                  
         # Tab 1: Output table
-        tabPanel("Input Table", tableOutput("output_table")),
+        conditionalPanel( # for the copy paste input, needs to be changed to react table
+          condition = "input.data_source == 'Manual'",
+
+          downloadButton("dwnldTableBtn", "Download Example Table"),
+          br(),
+          tabPanel("Input Data", rHandsontableOutput("output_table")),
+
+        ),
+        conditionalPanel( # for the copy paste input, needs to be changed to react table
+          condition = "input.data_source == 'Upload'",
+          fileInput(
+            "data_file",
+            label = "Upload data file (CSV)",
+            accept = ".csv"
+          )
+        ) 
+        ),
         
         # Tab 2: Output plot - Concordia Diagram
-        tabPanel("Concordia Plot", plotOutput("output_plot")),
+        tabPanel("Concordia Plot", plotOutput("concordia_plot", 
+                                              height = "700px", width = "700px") ),
         
         #Tab 3: Output plot - Discordance Plot (lower and Upper int)
         tabPanel("Discordance Plot (Lower and Upper Int.)", plotOutput("Discordance_plot_upper_lower")),
@@ -117,143 +120,167 @@ ui <- fluidPage(
         tabPanel("Discordance Plot (Lower Int. Summed)", plotOutput("Discordance_plot_lower_summed")),
         
         # Tab 5: Output plot - Heatmap 2D Histogram
-        tabPanel("Heatmap 2D Histogram", plotOutput("Discordance_plot_heat_map"))
+        tabPanel("Heatmap 2D Histogram", plotOutput("Discordance_plot_heat_map", height = "700px", width = "700px" )),
+        
+        # tab 6: output data
+        tabPanel("Results Table", dataTableOutput("results_table") )
       )
     )
-  ))
+  ),
+  # CSS styling
+  tags$head(
+    tags$style(HTML("
+      #reduce_data {
+        background-color: #213e47;
+        color: white;
+      }
+      
+      #reduce_data:hover {
+        background-color: #3A8997;
+      }
+      
+            #saveBtn {
+        background-color: #f3d098;
+        color: #000000;
+      }
+      
+      #saveBtn:hover {
+        background-color: #645153;
+        color: #ffffff
+      }
+      
+      #saveSzBtn {
+        background-color: #f3d098;
+        color: #000000;
+      }
+      
+      #saveSzBtn:hover {
+        background-color: #645153;
+        color: #ffffff
+      }
+      
+      
+    ") ) )
+  )
 
 
 
 
 server <- function(input, output, session) {
-  # Function to load data based on input type
-  loadData <- function() {
-    if (input$data_source == "Copy-Paste") {
-      # Read the input data from copy-paste
-      data <- read.table(text = input$data_input, sep = "\t", header = TRUE, check.names = FALSE)
-    } else {
-      # Read the input data from file upload
-      req(input$data_file)
-      data <- read.csv(input$data_file$datapath, header = TRUE, check.names = FALSE)
-    }
-    
-    # Subset the data to include only the desired columns
-    desired_columns <- c("Samples", "Final Pb207/U235_mean", "Final Pb207/U235_2SE(int)", "Final Pb206/U238_mean",
-                         "Final Pb206/U238_2SE(int)", "rho 206Pb/238U v 207Pb/235U", "Final Pb207/Pb206 age_mean")
-    data <- data[, desired_columns, drop = FALSE]
-    
-    # Return the data frame
-    return(data)
-  }
-  
-  # Create reactiveValues to store the data
-  reducedData <- reactiveValues(data = NULL)
-  
-  # Define a reactive expression to update the data when necessary
-  #will do reduction as soon as data is in the system
-  observeEvent(input$data_file, {
-    # Reduce the data
-    req(input$data_file) #requires the data to exist to run
-    Data.raw <- loadData() # raw data use the input data from the function above
-    
-    # Define variables
-    file_name <- input$data_file$name # used in labeling and titles
-    sample.name <- sub(".csv", "", file_name) # used in reduction naming
-    node.spacing <- as.numeric(input$node_space) # node spacing from drop down
-    
-    source('App_reduction.R', local = TRUE) # sources the reduction code and ties all the inputs to the variables
-    
-    # Update the reducedData reactiveValues
-    #the reactive variables only change when something else changes. 
-    # here the variables are the plots from the reworked discordant reduction plotting functions
-    # when the values are stored in this list, they can be called elsewhere
-    # they are called as list elements in the output plots
-    reducedData$data <- list(xy_plot,
-                             heat_map_plot,
-                             lower_int_summed)
-  })
-  
-  #will update data after inputs change and then button is pressed
-  # does the same as above and updates the reactiveVar with new plots
-  observeEvent(input$reduce_data, { # calls the input to see if the button is pressed
-    # requires the data to be input for it to try and run
-    req(input$data_file)
-    
-    #cleans the data using the function
-    Data.raw <- loadData()
-    
-    # Define variables
-    file_name <- input$data_file$name
-    sample.name <- sub(".csv", "", file_name)
-    node.spacing <- as.numeric(input$node_space) # node spacing from drop down
-    
-    # runs the cleaned discordance code and sets all the inputs
-    # this automates all the things we used to do
-    source('App_reduction.R', local = TRUE)
-    
-    # Update the reducedData reactiveValues
-    reducedData$data <- list(xy_plot, # upper and lower intercept plot
-                             heat_map_plot, # heat map plot
-                             lower_int_summed) # summed lower intercept plot
-  })
-  
-  
-  
-  
-  # Generate file name
-  # over worked but it gets the file name nonetheless
-  output$my_csv_name <- renderText({ # Output file name
-    # Test if file is selected
-    if (!is.null(input$data_file$datapath)) {
-      # Extract file name (additionally remove file extension using sub)
-      return(sub(".csv", "", input$data_file$name))
-    } else {
-      return(NULL)
-    }
-  })
   
   # Process the user input and generate output table
-  output$output_table <- renderTable({
-    data <- loadData()
-    data
+  # read in base table
+  upb_data_input <- reactiveVal( read.csv( "Example_data.csv", stringsAsFactors = FALSE ) )
+  
+  uploadedData <- reactive({
+    req(input$fileInput)
+    inFile <- input$fileInput
+    if (!is.null(inFile)) {
+      # Read the uploaded file
+      input.data <- read.csv(inFile$datapath, stringsAsFactors = FALSE)
+      return(input.data)
+    }
   })
   
+  ## display input data
+  observe( 
+    if( input$data_source == "Upload" ) {
+      output$output_table <- renderRHandsontable({
+        rhandsontable( uploadedData(), rowHeaders = NULL, width = "100%" ) 
+      })
+    }
+    else {
+      output$output_table <- renderRHandsontable({
+        rhandsontable( upb_data_input(), rowHeaders = NULL ) 
+      })
+    }
+  )
+  
+  ## download input data tables when button pushed
+  output$dwnldTableBtn <- downloadHandler(
+    newData <- hot_to_r(input$output_table),
+    filename = function() {
+      paste("Input_Data_", Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file) {
+      write.csv( hot_to_r(input$output_table), file, row.names = FALSE )
+    }
+  )
+  
   # Process the user input and generate output concordia
-  output$output_plot <- renderPlot({
-    data <- loadData()
-    
-    
+  output$concordia_plot <- renderPlot({
+    data <- hot_to_r(input$output_table)
     #Concordia Diagram using isoplotR
     #UPDATE OPTION: add a change to use type 1 or 2
     data_concordia <- read.data(data[, 2:6], ierr = 2, method = 'U-Pb', format = 1)
-    concordia(data_concordia, type = 1)
+    concordia( data_concordia, type = 1, ellipse.fill = "#3A899780", concordia.col = "#8f7767"  )
   })
   
-  # Upper and lower intercept xy plot
-  output$Discordance_plot_upper_lower <- renderPlot({
-    req(reducedData$data) # Wait for the data to be available
+  # save input parameters and the rhandsontable
+  # when the Save Inputs button is pushed
+  observeEvent(input$saveBtn, {
+    newData <- hot_to_r( input$output_table )
+    input.settings.data <- data.frame( node_space = input$node_space,
+                                       normalize_unc = input$normalize_unc,
+                                       data_type = input$data_type, 
+                                       start_cut_upper_min = input$start_cut_upper_min,
+                                       start_cut_upper_max = input$start_cut_upper_max,
+                                       start_cut_lower_min = input$start_cut_lower_min,
+                                       start_cut_lower_max = input$start_cut_lower_max,
+                                       sample.name = input$sampleName )
     
-    
-    reducedData$data[[1]] #calls the plot out of the react variable
-    # the syntax is weird here. double brackets first set calls the list, second calls the item
-    
+    # Replace "path/to/file.csv" with the actual path to your CSV file
+    write.csv( newData, "Shiny_OutPut.csv", row.names = FALSE )
+    write.csv( newData, paste( input$sampleName,"_upb_inputdata.csv", sep=""), row.names = FALSE)
+    write.csv( input.settings.data, "input.settings.data.csv", row.names = FALSE )
+    showModal( modalDialog(
+      "Changes saved successfully!",
+      title = "Success"
+    ))
   })
   
-  # Summed lower intercept probability plot
-  output$Discordance_plot_lower_summed <- renderPlot({
-    req(reducedData$data) # Wait for the data to be available
-    
-    
-    reducedData$data[[3]] #calls the plot out of the react variable
-  })
   
-  # Heatmap 2d histogram plot
-  output$Discordance_plot_heat_map <- renderPlot({
-    req(reducedData$data) # Wait for the data to be available
+  #######         Run the modeling          ###################################################
+  observeEvent(input$reduce_data, {
+    showModal(
+      modalDialog(
+        "The Modeling Process is Running",
+        easyClose = TRUE
+      )
+    )
     
-    reducedData$data[[2]] #calls the plot out of the react variable
+    # Set data1 as an environment variable for the sourced script
+    env <- new.env()
+
+    source( 'App_reduction.R', local = env)
     
-  })
+    output$Discordance_plot_upper_lower <- renderPlot({
+      env$xy_plot 
+    })   
+    output$Discordance_plot_lower_summed <- renderPlot({
+      env$lower_int_summed
+    })
+    output$Discordance_plot_heat_map <- renderPlot({
+      env$heat_map_plot
+    })
+    
+    output$results_table <- renderDataTable({
+        datatable( env$DiscGridTableFinal )
+    })
+    
+    observeEvent( input$reduce_data, {
+      showModal(
+        modalDialog(
+            print("Discordance Modeling Completed")
+            )
+      )
+    })
+    
+  }
+  )
+  
+  
+
 }
 
 # Run the Shiny app
