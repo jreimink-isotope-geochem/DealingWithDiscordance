@@ -10,25 +10,32 @@ reactlog_enable()
 
 
 ui <- fluidPage(
+  h1( id="big-heading", "Discordance Modeling of U-Pb Data"),
+  tags$style( HTML( "#big-heading{ color: #213e47;
+                    text-align:center}")),
   sidebarLayout(
     sidebarPanel(
-      textInput( "sampleName", "Sample Name:", value = "sample name here" ),
+      h3( id="settings-heading", "Modeling Settings"),
       br(),
+      tags$style( HTML( "#settings-heading{ color: #213e47;
+                    text-align:center}")),
+      textInput( "sampleName", ("Sample Name:"), value = "sample name here" ),
       selectInput(# drop down for the node spacing
         inputId = "node_space",
-        label = "Node Spacing (Ma)",
+        label = ("Node Spacing (Ma)"),
         choices = c(0.5,1,5,10,15,20,25,50,100),
         selected = 25
       ),
       
       radioButtons( #input for normalizing the uncertainty
         inputId ="normalize_unc",
-        label = 'Uncertainty normalization',
+        label = ('Uncertainty normalization'),
         choiceNames = c("Normalized", "Unnormalized"),
         choiceValues = c('Y', 'N'),
         selected = "N",
         inline = TRUE
       ),
+
       
       radioButtons( # input to weight against concordant analysis
         inputId ="data_type",
@@ -38,11 +45,12 @@ ui <- fluidPage(
         selected = "single",
         inline = TRUE
       ),
+
       
       #NEXT inputs pertain to the entry windows for the axes      
       numericInput( 
         inputId = "start_cut_upper_min",
-        label = "Minimum Upper Intercept Value (Ma)",
+        label = ("Minimum Upper Intercept Value (Ma)"),
         value = 0,
         min = 0,
         max = 4500
@@ -50,7 +58,7 @@ ui <- fluidPage(
       
       numericInput(
         inputId = "start_cut_upper_max",
-        label = "Maximum Upper Intercept Value (Ma)",
+        label = ("Maximum Upper Intercept Value (Ma)"),
         min = 0,
         max = 4500,
         value = 2000
@@ -58,7 +66,7 @@ ui <- fluidPage(
       
       numericInput(
         inputId = "start_cut_lower_min",
-        label = "Minimum Lower Intercept Value (Ma)",
+        label = ("Minimum Lower Intercept Value (Ma)"),
         min = 0,
         max = 4500,
         value = 0
@@ -66,14 +74,12 @@ ui <- fluidPage(
       
       numericInput(
         inputId = "start_cut_lower_max",
-        label = "Maximum Lower Intercept Value (Ma)",
+        label = ("Maximum Lower Intercept Value (Ma)"),
         min = 0,
         max = 4500,
         value = 2000
       ),
-      br(),
       actionButton( "saveBtn", "Save Table"),
-      br(),
       actionButton(#creates the button for the obserEvent call to reduce
         inputId = "reduce_data",
         label = "Run Discordance Modeling"
