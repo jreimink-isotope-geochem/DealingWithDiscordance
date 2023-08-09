@@ -79,7 +79,6 @@ ui <- fluidPage(
         max = 4500,
         value = 2000
       ),
-      actionButton( "saveBtn", "Save Table"),
       actionButton(#creates the button for the obserEvent call to reduce
         inputId = "reduce_data",
         label = "Run Discordance Modeling"
@@ -233,9 +232,17 @@ server <- function(input, output, session) {
     concordia( data_concordia, type = 1, ellipse.fill = "#3A899780", concordia.col = "#8f7767"  )
   })
   
-  # save input parameters and the rhandsontable
-  # when the Save Inputs button is pushed
-  observeEvent(input$saveBtn, {
+
+  
+  
+  #######         Run the modeling          ###################################################
+  observeEvent(input$reduce_data, {
+    showModal(
+      modalDialog(
+        "The Modeling Process is Running",
+        easyClose = TRUE
+      )
+    )
     newData <- hot_to_r( input$output_table )
     input.settings.data <- data.frame( node_space = input$node_space,
                                        normalize_unc = input$normalize_unc,
@@ -250,24 +257,10 @@ server <- function(input, output, session) {
     write.csv( newData, "Shiny_OutPut.csv", row.names = FALSE )
     write.csv( newData, paste( input$sampleName,"_upb_inputdata.csv", sep=""), row.names = FALSE)
     write.csv( input.settings.data, "input.settings.data.csv", row.names = FALSE )
-    showModal( modalDialog(
-      "Changes saved successfully!",
-      title = "Success"
-    ))
-  })
-  
-  
-  #######         Run the modeling          ###################################################
-  observeEvent(input$reduce_data, {
-    showModal(
-      modalDialog(
-        "The Modeling Process is Running",
-        easyClose = TRUE
-      )
-    )
     
     # Set data1 as an environment variable for the sourced script
     env <- new.env()
+    
 
     source( 'App_reduction.R', local = env)
     
